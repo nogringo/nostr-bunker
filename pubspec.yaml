@@ -1,0 +1,14 @@
+name: nostr_bunker
+description: With this package your app can act as a bunker and will be able to sign events from others Nostr apps.
+version: 1.0.0
+repository: https://gitworkshop.dev/npub1kg4sdvz3l4fr99n2jdz2vdxe2mpacva87hkdetv76ywacsfq5leqquw5te/nostr-bunker
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  ndk: ^0.5.1
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6
