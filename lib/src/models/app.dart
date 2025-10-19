@@ -59,18 +59,28 @@ class App {
     };
   }
 
+  List<Permission> getMatchingPermissions(String command) {
+    return permissions
+        .where((permission) => permission.command == command)
+        .toList();
+  }
+
   bool canAutoProcess(String command) {
     if (!isEnabled) return false;
     if (authorisationMode == AuthorisationMode.fullyTrust) return true;
 
-    final matchingPermissions = permissions.where(
-      (permission) => permission.command == command,
-    );
+    final matchingPermissions = getMatchingPermissions(command);
 
     if (matchingPermissions
         .where((permission) => !permission.isAllowed)
         .isNotEmpty) {
       return false;
+    }
+
+    if (matchingPermissions
+        .where((permission) => permission.isAllowed)
+        .isNotEmpty) {
+      return true;
     }
 
     if (authorisationMode == AuthorisationMode.allwaysAsk) return false;
@@ -79,10 +89,8 @@ class App {
       if (authorisationMode == AuthorisationMode.allowCommonRequests) {
         if (commonCommands.contains(command)) return true;
       }
-
-      return false;
     }
 
-    return true;
+    return false;
   }
 }

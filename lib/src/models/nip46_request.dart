@@ -1,3 +1,5 @@
+import 'package:nostr_bunker/src/utils/nip46_parser.dart';
+
 enum Nip46Commands {
   connect,
   signEvent,
@@ -16,6 +18,8 @@ class Nip46Request {
   final String appPubkey;
   final String bunkerPubkey;
   final bool useNip44;
+
+  String get commandString => commandFromNip46Request(this);
 
   Nip46Request({
     required this.id,

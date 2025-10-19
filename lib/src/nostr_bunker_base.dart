@@ -16,18 +16,19 @@ import 'package:nostr_bunker/src/utils/no_event_verifier.dart';
 class Bunker {
   late Ndk ndk;
   late List<App> apps = [];
-  late List<String> defaultBunkerUrlRelays = [];
+  late List<String> defaultBunkerRelays = [];
 
   NdkResponse? signingRequestsSubscription;
   List<NdkResponse> bunkerUrlSubs = [];
 
-  List<Nip46Request> queuedRequests = [];
-  final _queuedRequestsController = StreamController<Nip46Request>();
+  List<Nip46Request> pendingRequests = [];
+  final _pendingRequestsController = StreamController<Nip46Request>();
 
-  Stream<Nip46Request> get queuedRequestsStream =>
-      _queuedRequestsController.stream;
+  /// Trigger on new unprocessed request
+  Stream<Nip46Request> get pendingRequestsStream =>
+      _pendingRequestsController.stream;
 
-  List<String> get privatesKeys => ndk.accounts.accounts.values
+  List<String> get privateKeys => ndk.accounts.accounts.values
       .where((account) => account.signer is Bip340EventSigner)
       .map((account) => (account.signer as Bip340EventSigner).privateKey!)
       .toList();
@@ -37,7 +38,7 @@ class Bunker {
   Bunker({
     List<String> privateKeys = const <String>[],
     List<App> apps = const <App>[],
-    List<String> defaultBunkerUrlRelays = const [
+    List<String> defaultBunkerRelays = const [
       "wss://relay.nsec.app",
       "wss://offchain.pub",
     ],
@@ -48,7 +49,7 @@ class Bunker {
     }
 
     this.apps.addAll(apps);
-    this.defaultBunkerUrlRelays.addAll(defaultBunkerUrlRelays);
+    this.defaultBunkerRelays.addAll(defaultBunkerRelays);
 
     this.ndk =
         ndk ??
@@ -56,9 +57,55 @@ class Bunker {
           NdkConfig(
             eventVerifier: NoEventVerifier(),
             cache: MemCacheManager(),
-            bootstrapRelays: [...defaultBunkerUrlRelays],
+            bootstrapRelays: [...defaultBunkerRelays],
           ),
         );
+  }
+
+  List<Nip46Request> getPendingRequests(App app) {
+    return pendingRequests
+        .where((req) => req.bunkerPubkey == app.bunkerPubkey)
+        .toList();
+  }
+
+  void allowForever({required String command, required App app}) {
+    final matchingPermissions = app.getMatchingPermissions(command);
+
+    if (matchingPermissions.isEmpty) {
+      app.permissions.add(Permission(command: command));
+    } else {
+      matchingPermissions.map((perm) => perm.isAllowed = true);
+    }
+
+    pendingRequests
+        .where(
+          (req) =>
+              req.bunkerPubkey == app.bunkerPubkey &&
+              req.commandString == command,
+        )
+        .map((req) => processNip46Request(req));
+
+    pendingRequests.removeWhere(
+      (req) =>
+          req.bunkerPubkey == app.bunkerPubkey && req.commandString == command,
+    );
+
+    print(pendingRequests.length);
+  }
+
+  void rejectForever({required String command, required App app}) {
+    final matchingPermissions = app.getMatchingPermissions(command);
+
+    if (matchingPermissions.isEmpty) {
+      app.permissions.add(Permission(command: command, isAllowed: false));
+    } else {
+      matchingPermissions.map((perm) => perm.isAllowed = false);
+    }
+
+    pendingRequests.removeWhere(
+      (req) =>
+          req.bunkerPubkey == app.bunkerPubkey && req.commandString == command,
+    );
   }
 
   void addPrivateKey(String privateKey) {
@@ -73,6 +120,10 @@ class Bunker {
 
   void removePrivateKey(String pubkey) {
     ndk.accounts.removeAccount(pubkey: pubkey);
+  }
+
+  void removeApp(App app) {
+    apps.removeWhere((e) => e.bunkerPubkey == app.bunkerPubkey);
   }
 
   void start() {
@@ -99,7 +150,7 @@ class Bunker {
     }
 
     // Add default bunker relays as fallback
-    allRelays.addAll(defaultBunkerUrlRelays);
+    allRelays.addAll(defaultBunkerRelays);
 
     signingRequestsSubscription = ndk.requests.subscription(
       filters: [
@@ -135,8 +186,8 @@ class Bunker {
 
     final command = commandFromNip46Request(nip46Request);
     if (!app.canAutoProcess(command)) {
-      queuedRequests.add(nip46Request);
-      _queuedRequestsController.sink.add(nip46Request);
+      pendingRequests.add(nip46Request);
+      _pendingRequestsController.sink.add(nip46Request);
 
       // TODO send an error
       // await _sendNip46Response(
@@ -295,7 +346,7 @@ class Bunker {
     await broadcastRes.broadcastDoneFuture;
   }
 
-  Future<void> connectApp({
+  Future<App> connectApp({
     required String signerPubkey,
     required NostrConnectUrl nostrConnect,
   }) async {
@@ -319,6 +370,7 @@ class Bunker {
       userPubkey: signerPubkey,
       relays: nostrConnect.relays,
       permissions: nostrConnect.permissions,
+      name: nostrConnect.name,
     );
 
     final connectEvent = Nip01Event(
@@ -370,9 +422,14 @@ class Bunker {
       );
       break;
     }
+
+    return app;
   }
 
-  String getBunkerUrl({required String signerPubkey}) {
+  String getBunkerUrl({
+    required String signerPubkey,
+    void Function(App app)? onConnected,
+  }) {
     final bunkerKeyPair = Bip340.generatePrivateKey();
 
     final bunkerSigner = Bip340EventSigner(
@@ -387,7 +444,7 @@ class Bunker {
 
     final bunkerUrl = BunkerUrl(
       pubkey: bunkerKeyPair.publicKey,
-      relays: defaultBunkerUrlRelays,
+      relays: defaultBunkerRelays,
     );
 
     final sub = ndk.requests.subscription(
@@ -430,6 +487,8 @@ class Bunker {
 
       ndk.requests.closeSubscription(sub.requestId);
       bunkerUrlSubs.removeWhere((e) => e.requestId == sub.requestId);
+
+      if (onConnected != null) onConnected(app);
     });
 
     return bunkerUrl.url;
@@ -442,7 +501,7 @@ class Bunker {
   }
 
   void dispose() {
-    _queuedRequestsController.close();
+    _pendingRequestsController.close();
     _stopSigningRequestsSubscription();
   }
 }

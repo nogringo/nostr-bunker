@@ -25,17 +25,22 @@ void main() {
 
     final ndkClient = Ndk.defaultConfig();
 
+    final appName = "Test 123";
+
     final clientSideGeneratedNostrConnect = NostrConnect(
       relays: ["wss://relay.nsec.app", "wss://offchain.pub"],
+      appName: appName,
     );
 
     Future<void> runBunker() async {
-      await bunker.connectApp(
+      final app = await bunker.connectApp(
         nostrConnect: NostrConnectUrl.fromUrl(
           clientSideGeneratedNostrConnect.nostrConnectURL,
         ),
         signerPubkey: ndkBunker.accounts.getPublicKey()!,
       );
+
+      expect(app.name!, equals(appName));
     }
 
     Future<void> runApp() async {
@@ -410,6 +415,6 @@ void main() {
     final userKeyPair = Bip340.generatePrivateKey();
     bunker.addPrivateKey(userKeyPair.privateKey!);
 
-    expect(bunker.privatesKeys.first, equals(userKeyPair.privateKey!));
+    expect(bunker.privateKeys.first, equals(userKeyPair.privateKey!));
   });
 }
