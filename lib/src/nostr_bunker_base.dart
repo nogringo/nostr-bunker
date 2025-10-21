@@ -13,10 +13,6 @@ import 'package:nostr_bunker/src/utils/nip46_encryption.dart';
 import 'package:nostr_bunker/src/utils/nip46_parser.dart';
 import 'package:nostr_bunker/src/utils/no_event_verifier.dart';
 
-// pending req
-// blocked req
-// done req
-
 class Bunker {
   late Ndk ndk;
   late List<App> apps = [];
@@ -25,8 +21,6 @@ class Bunker {
   NdkResponse? signingRequestsSubscription;
   List<NdkResponse> bunkerUrlSubs = [];
 
-  List<Nip46Request> pendingRequests = [];
-  List<Nip46Request> blockedRequests = [];
   final _pendingRequestsController = StreamController<Nip46Request>();
   final _blockedRequestsController = StreamController<Nip46Request>();
   final _processedRequestsController = StreamController<Nip46Request>();
@@ -77,12 +71,6 @@ class Bunker {
     }
   }
 
-  List<Nip46Request> getPendingRequests(App app) {
-    return pendingRequests
-        .where((req) => req.bunkerPubkey == app.bunkerPubkey)
-        .toList();
-  }
-
   void allowForever({required String command, required App app}) {
     final matchingPermissions = app.getMatchingPermissions(command);
 
@@ -91,20 +79,6 @@ class Bunker {
     } else {
       matchingPermissions.map((perm) => perm.isAllowed = true);
     }
-
-    final reqToProcess = pendingRequests.where(
-      (req) =>
-          req.bunkerPubkey == app.bunkerPubkey && req.commandString == command,
-    );
-
-    for (var req in reqToProcess) {
-      processRequest(req);
-    }
-
-    pendingRequests.removeWhere(
-      (req) =>
-          req.bunkerPubkey == app.bunkerPubkey && req.commandString == command,
-    );
   }
 
   void rejectForever({required String command, required App app}) {
@@ -115,11 +89,6 @@ class Bunker {
     } else {
       matchingPermissions.map((perm) => perm.isAllowed = false);
     }
-
-    pendingRequests.removeWhere(
-      (req) =>
-          req.bunkerPubkey == app.bunkerPubkey && req.commandString == command,
-    );
   }
 
   void addPrivateKey(String privateKey) {
@@ -173,7 +142,7 @@ class Bunker {
       explicitRelays: allRelays.toList(),
     );
 
-    signingRequestsSubscription!.stream.listen(processIncomingRequestEvent);
+    signingRequestsSubscription!.stream.listen(_processIncomingRequestEvent);
   }
 
   Future<void> _stopSigningRequestsSubscription() async {
@@ -184,7 +153,7 @@ class Bunker {
     signingRequestsSubscription = null;
   }
 
-  void processIncomingRequestEvent(Nip01Event event) async {
+  void _processIncomingRequestEvent(Nip01Event event) async {
     final nip46Request = await parseNip46Request(ndk: ndk, event: event);
     if (nip46Request == null) return;
 
@@ -200,7 +169,6 @@ class Bunker {
 
     final command = commandFromNip46Request(nip46Request);
     if (app.isCommandBlocked(command)) {
-      blockedRequests.add(nip46Request);
       _blockedRequestsController.sink.add(nip46Request);
 
       // TODO send an error
@@ -209,7 +177,6 @@ class Bunker {
     }
 
     if (!app.canAutoProcess(command)) {
-      pendingRequests.add(nip46Request);
       _pendingRequestsController.sink.add(nip46Request);
 
       // TODO send an error

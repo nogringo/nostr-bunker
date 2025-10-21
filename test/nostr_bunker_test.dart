@@ -103,17 +103,14 @@ void main() {
     );
 
     Future<void> runBunker() async {
-      final app = await bunker.connectApp(
+      await bunker.connectApp(
         nostrConnect: NostrConnectUrl.fromUrl(
           clientSideGeneratedNostrConnect.nostrConnectURL,
         ),
         userPubkey: userKeyPair.publicKey,
+        appAuthorisationMode: AuthorisationMode.fullyTrust,
+        enableApp: true,
       );
-      app.isEnabled = true;
-      app.authorisationMode = AuthorisationMode.fullyTrust;
-      for (var req in bunker.blockedRequests) {
-        bunker.processRequest(req);
-      }
     }
 
     Future<void> runApp() async {
