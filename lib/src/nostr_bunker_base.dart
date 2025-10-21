@@ -13,6 +13,10 @@ import 'package:nostr_bunker/src/utils/nip46_encryption.dart';
 import 'package:nostr_bunker/src/utils/nip46_parser.dart';
 import 'package:nostr_bunker/src/utils/no_event_verifier.dart';
 
+// pending req
+// blocked req
+// done req
+
 class Bunker {
   late Ndk ndk;
   late List<App> apps = [];
@@ -22,11 +26,22 @@ class Bunker {
   List<NdkResponse> bunkerUrlSubs = [];
 
   List<Nip46Request> pendingRequests = [];
+  List<Nip46Request> blockedRequests = [];
   final _pendingRequestsController = StreamController<Nip46Request>();
+  final _blockedRequestsController = StreamController<Nip46Request>();
+  final _processedRequestsController = StreamController<Nip46Request>();
 
   /// Trigger on new unprocessed request
   Stream<Nip46Request> get pendingRequestsStream =>
       _pendingRequestsController.stream;
+
+  /// Trigger on new blocked request
+  Stream<Nip46Request> get blockedRequestsStream =>
+      _blockedRequestsController.stream;
+
+  /// Trigger on new processed request
+  Stream<Nip46Request> get processedRequestsStream =>
+      _processedRequestsController.stream;
 
   List<String> get privateKeys => ndk.accounts.accounts.values
       .where((account) => account.signer is Bip340EventSigner)
@@ -77,20 +92,19 @@ class Bunker {
       matchingPermissions.map((perm) => perm.isAllowed = true);
     }
 
-    pendingRequests
-        .where(
-          (req) =>
-              req.bunkerPubkey == app.bunkerPubkey &&
-              req.commandString == command,
-        )
-        .map((req) => processNip46Request(req));
+    final reqToProcess = pendingRequests.where(
+      (req) =>
+          req.bunkerPubkey == app.bunkerPubkey && req.commandString == command,
+    );
+
+    for (var req in reqToProcess) {
+      processNip46Request(req);
+    }
 
     pendingRequests.removeWhere(
       (req) =>
           req.bunkerPubkey == app.bunkerPubkey && req.commandString == command,
     );
-
-    print(pendingRequests.length);
   }
 
   void rejectForever({required String command, required App app}) {
@@ -185,6 +199,15 @@ class Bunker {
     if (app == null) return;
 
     final command = commandFromNip46Request(nip46Request);
+    if (app.isCommandBlocked(command)) {
+      blockedRequests.add(nip46Request);
+      _blockedRequestsController.sink.add(nip46Request);
+
+      // TODO send an error
+
+      return;
+    }
+
     if (!app.canAutoProcess(command)) {
       pendingRequests.add(nip46Request);
       _pendingRequestsController.sink.add(nip46Request);
@@ -296,6 +319,8 @@ class Bunker {
         requestId: req.id,
         result: result,
       );
+
+      _processedRequestsController.sink.add(req);
     } catch (e) {
       await _sendNip46Response(
         bunkerSigner: bunkerSigner,

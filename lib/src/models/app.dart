@@ -23,8 +23,8 @@ class App {
     this.name,
     required this.relays,
     required this.permissions,
-    this.authorisationMode = AuthorisationMode.allowCommonRequests,
-    this.isEnabled = true,
+    this.authorisationMode = AuthorisationMode.allwaysAsk,
+    this.isEnabled = false,
   });
 
   factory App.fromJson(Map<String, dynamic> json) {
@@ -63,6 +63,19 @@ class App {
     return permissions
         .where((permission) => permission.command == command)
         .toList();
+  }
+
+  bool isCommandBlocked(String command) {
+    if (!isEnabled) return true;
+
+    final matchingPermissions = getMatchingPermissions(command);
+    if (matchingPermissions
+        .where((permission) => !permission.isAllowed)
+        .isNotEmpty) {
+      return true;
+    }
+
+    return false;
   }
 
   bool canAutoProcess(String command) {
