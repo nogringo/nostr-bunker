@@ -59,10 +59,6 @@ class Bunker {
     ],
     Ndk? ndk,
   }) {
-    for (var pk in privateKeys) {
-      addPrivateKey(pk);
-    }
-
     this.apps.addAll(apps);
     this.defaultBunkerRelays.addAll(defaultBunkerRelays);
 
@@ -75,6 +71,10 @@ class Bunker {
             bootstrapRelays: [...defaultBunkerRelays],
           ),
         );
+
+    for (var pk in privateKeys) {
+      addPrivateKey(pk);
+    }
   }
 
   List<Nip46Request> getPendingRequests(App app) {
@@ -98,7 +98,7 @@ class Bunker {
     );
 
     for (var req in reqToProcess) {
-      processNip46Request(req);
+      processRequest(req);
     }
 
     pendingRequests.removeWhere(
@@ -223,10 +223,10 @@ class Bunker {
       return;
     }
 
-    processNip46Request(nip46Request);
+    processRequest(nip46Request);
   }
 
-  void processNip46Request(Nip46Request req) async {
+  void processRequest(Nip46Request req) async {
     final app = apps
         .where(
           (app) =>
@@ -372,10 +372,13 @@ class Bunker {
   }
 
   Future<App> connectApp({
-    required String signerPubkey,
+    required String userPubkey,
     required NostrConnectUrl nostrConnect,
+    String? appName,
+    AuthorisationMode appAuthorisationMode = AuthorisationMode.allwaysAsk,
+    bool enableApp = false,
   }) async {
-    final signer = ndk.accounts.accounts[signerPubkey]!.signer;
+    final signer = ndk.accounts.accounts[userPubkey]!.signer;
 
     final bunkerKeyPair = Bip340.generatePrivateKey();
 
@@ -392,10 +395,12 @@ class Bunker {
     final app = App(
       appPubkey: nostrConnect.clientPubkey,
       bunkerPubkey: bunkerKeyPair.publicKey,
-      userPubkey: signerPubkey,
+      userPubkey: userPubkey,
       relays: nostrConnect.relays,
       permissions: nostrConnect.permissions,
-      name: nostrConnect.name,
+      name: appName ?? nostrConnect.name,
+      authorisationMode: appAuthorisationMode,
+      isEnabled: enableApp,
     );
 
     final connectEvent = Nip01Event(
@@ -452,7 +457,10 @@ class Bunker {
   }
 
   String getBunkerUrl({
-    required String signerPubkey,
+    required String userPubkey,
+    String? appName,
+    AuthorisationMode appAuthorisationMode = AuthorisationMode.allwaysAsk,
+    bool enableApp = false,
     void Function(App app)? onConnected,
   }) {
     final bunkerKeyPair = Bip340.generatePrivateKey();
@@ -491,13 +499,16 @@ class Bunker {
       final app = App(
         appPubkey: nip46Request.appPubkey,
         bunkerPubkey: bunkerKeyPair.publicKey,
-        userPubkey: signerPubkey,
+        userPubkey: userPubkey,
+        name: appName,
         relays: bunkerUrl.relays,
         permissions: [
           Permission(command: "connect"),
           Permission(command: "get_public_key"),
           Permission(command: "ping"),
         ],
+        authorisationMode: appAuthorisationMode,
+        isEnabled: enableApp,
       );
 
       apps.add(app);
@@ -527,6 +538,8 @@ class Bunker {
 
   void dispose() {
     _pendingRequestsController.close();
+    _blockedRequestsController.close();
+    _processedRequestsController.close();
     _stopSigningRequestsSubscription();
   }
 }

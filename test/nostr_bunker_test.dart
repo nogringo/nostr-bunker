@@ -11,17 +11,10 @@ import 'package:nostr_bunker/src/models/nostr_connect_url.dart';
 
 void main() {
   test("Test nostr connect url", () async {
-    final ndkBunker = Ndk.defaultConfig();
-
     final userKeyPair = Bip340.generatePrivateKey();
-    ndkBunker.accounts.loginPrivateKey(
-      pubkey: userKeyPair.publicKey,
-      privkey: userKeyPair.privateKey!,
-    );
 
-    final bunker = Bunker(ndk: ndkBunker);
-
-    bunker.start();
+    final bunker = Bunker();
+    bunker.addPrivateKey(userKeyPair.privateKey!);
 
     final ndkClient = Ndk.defaultConfig();
 
@@ -37,7 +30,7 @@ void main() {
         nostrConnect: NostrConnectUrl.fromUrl(
           clientSideGeneratedNostrConnect.nostrConnectURL,
         ),
-        signerPubkey: ndkBunker.accounts.getPublicKey()!,
+        userPubkey: userKeyPair.publicKey,
       );
 
       expect(app.name!, equals(appName));
@@ -56,19 +49,11 @@ void main() {
   });
 
   test("Test bunker url", () async {
-    final ndkBunker = Ndk.defaultConfig();
-
     final userKeyPair = Bip340.generatePrivateKey();
-    ndkBunker.accounts.loginPrivateKey(
-      pubkey: userKeyPair.publicKey,
-      privkey: userKeyPair.privateKey!,
-    );
 
-    final bunker = Bunker(ndk: ndkBunker);
+    final bunker = Bunker(privateKeys: [userKeyPair.privateKey!]);
 
-    bunker.start();
-
-    final bunkerUrl = bunker.getBunkerUrl(signerPubkey: userKeyPair.publicKey);
+    final bunkerUrl = bunker.getBunkerUrl(userPubkey: userKeyPair.publicKey);
 
     final ndkClient = Ndk.defaultConfig();
 
@@ -78,19 +63,15 @@ void main() {
   });
 
   test("Test bunker url 2", () async {
-    final ndkBunker = Ndk.defaultConfig();
-
     final userKeyPair = Bip340.generatePrivateKey();
-    ndkBunker.accounts.loginPrivateKey(
-      pubkey: userKeyPair.publicKey,
-      privkey: userKeyPair.privateKey!,
+
+    final bunker = Bunker(privateKeys: [userKeyPair.privateKey!]);
+
+    final bunkerUrl = bunker.getBunkerUrl(
+      userPubkey: userKeyPair.publicKey,
+      appAuthorisationMode: AuthorisationMode.fullyTrust,
+      enableApp: true,
     );
-
-    final bunker = Bunker(ndk: ndkBunker);
-
-    bunker.start();
-
-    final bunkerUrl = bunker.getBunkerUrl(signerPubkey: userKeyPair.publicKey);
 
     final ndkClient = Ndk.defaultConfig();
 
@@ -103,17 +84,10 @@ void main() {
   });
 
   test("Test nostr connect url with asked permission", () async {
-    final ndkBunker = Ndk.defaultConfig();
-
     final userKeyPair = Bip340.generatePrivateKey();
-    ndkBunker.accounts.loginPrivateKey(
-      pubkey: userKeyPair.publicKey,
-      privkey: userKeyPair.privateKey!,
-    );
 
-    final bunker = Bunker(ndk: ndkBunker);
-
-    bunker.start();
+    final bunker = Bunker();
+    bunker.addPrivateKey(userKeyPair.privateKey!);
 
     final ndkClient = Ndk.defaultConfig();
 
@@ -129,12 +103,17 @@ void main() {
     );
 
     Future<void> runBunker() async {
-      await bunker.connectApp(
+      final app = await bunker.connectApp(
         nostrConnect: NostrConnectUrl.fromUrl(
           clientSideGeneratedNostrConnect.nostrConnectURL,
         ),
-        signerPubkey: ndkBunker.accounts.getPublicKey()!,
+        userPubkey: userKeyPair.publicKey,
       );
+      app.isEnabled = true;
+      app.authorisationMode = AuthorisationMode.fullyTrust;
+      for (var req in bunker.blockedRequests) {
+        bunker.processRequest(req);
+      }
     }
 
     Future<void> runApp() async {
@@ -165,17 +144,10 @@ void main() {
   });
 
   test("Test nostr connect url without asked permission", () async {
-    final ndkBunker = Ndk.defaultConfig();
-
     final userKeyPair = Bip340.generatePrivateKey();
-    ndkBunker.accounts.loginPrivateKey(
-      pubkey: userKeyPair.publicKey,
-      privkey: userKeyPair.privateKey!,
-    );
 
-    final bunker = Bunker(ndk: ndkBunker);
-
-    bunker.start();
+    final bunker = Bunker();
+    bunker.addPrivateKey(userKeyPair.privateKey!);
 
     final ndkClient = Ndk.defaultConfig();
 
@@ -194,7 +166,7 @@ void main() {
         nostrConnect: NostrConnectUrl.fromUrl(
           clientSideGeneratedNostrConnect.nostrConnectURL,
         ),
-        signerPubkey: ndkBunker.accounts.getPublicKey()!,
+        userPubkey: userKeyPair.publicKey,
       );
     }
 
@@ -232,17 +204,10 @@ void main() {
   });
 
   test("Test all bunker commands", () async {
-    final ndkBunker = Ndk.defaultConfig();
-
     final userKeyPair = Bip340.generatePrivateKey();
-    ndkBunker.accounts.loginPrivateKey(
-      pubkey: userKeyPair.publicKey,
-      privkey: userKeyPair.privateKey!,
-    );
 
-    final bunker = Bunker(ndk: ndkBunker);
-
-    bunker.start();
+    final bunker = Bunker();
+    bunker.addPrivateKey(userKeyPair.privateKey!);
 
     final ndkClient = Ndk.defaultConfig();
 
@@ -271,7 +236,9 @@ void main() {
         nostrConnect: NostrConnectUrl.fromUrl(
           clientSideGeneratedNostrConnect.nostrConnectURL,
         ),
-        signerPubkey: ndkBunker.accounts.getPublicKey()!,
+        userPubkey: userKeyPair.publicKey,
+        appAuthorisationMode: AuthorisationMode.fullyTrust,
+        enableApp: true,
       );
     }
 
@@ -354,8 +321,6 @@ void main() {
   });
 
   test("Test with apps", () async {
-    final ndkBunker = Ndk.defaultConfig();
-
     final userKeyPair = Bip340.generatePrivateKey();
     final bunkerKeyPair = Bip340.generatePrivateKey();
     final appKeyPair = Bip340.generatePrivateKey();
@@ -375,19 +340,14 @@ void main() {
         Permission(command: "nip44_encrypt"),
         Permission(command: "nip44_decrypt"),
       ],
+      authorisationMode: AuthorisationMode.fullyTrust,
+      isEnabled: true,
     );
 
-    ndkBunker.accounts.loginPrivateKey(
-      pubkey: userKeyPair.publicKey,
-      privkey: userKeyPair.privateKey!,
+    final bunker = Bunker(
+      apps: [app],
+      privateKeys: [userKeyPair.privateKey!, bunkerKeyPair.privateKey!],
     );
-
-    ndkBunker.accounts.loginPrivateKey(
-      pubkey: bunkerKeyPair.publicKey,
-      privkey: bunkerKeyPair.privateKey!,
-    );
-
-    final bunker = Bunker(ndk: ndkBunker, apps: [app]);
 
     bunker.start();
 
@@ -407,14 +367,5 @@ void main() {
 
     final pingRes = await clientSigner.ping();
     expect(pingRes, equals("pong"));
-  });
-
-  test("Test NDK, what is that", () async {
-    final bunker = Bunker();
-
-    final userKeyPair = Bip340.generatePrivateKey();
-    bunker.addPrivateKey(userKeyPair.privateKey!);
-
-    expect(bunker.privateKeys.first, equals(userKeyPair.privateKey!));
   });
 }

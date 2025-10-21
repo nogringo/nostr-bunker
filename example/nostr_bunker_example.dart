@@ -15,7 +15,7 @@ void main() async {
 
   bunker.start();
 
-  final bunkerUrl = bunker.getBunkerUrl(signerPubkey: userKeyPair.publicKey);
+  final bunkerUrl = bunker.getBunkerUrl(userPubkey: userKeyPair.publicKey);
 
   final ndkClient = Ndk.defaultConfig();
 
