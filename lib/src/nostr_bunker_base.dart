@@ -193,25 +193,25 @@ class Bunker {
     processRequest(nip46Request);
   }
 
-  void processRequest(Nip46Request req) async {
+  void processRequest(Nip46Request request) async {
     final app = apps
         .where(
           (app) =>
-              app.appPubkey == req.appPubkey &&
-              app.bunkerPubkey == req.bunkerPubkey,
+              app.appPubkey == request.appPubkey &&
+              app.bunkerPubkey == request.bunkerPubkey,
         )
         .firstOrNull;
     if (app == null) return;
 
     final userSigner = _getSigner(ndk: ndk, pubkey: app.userPubkey);
     if (userSigner == null) return;
-    final bunkerSigner = _getSigner(ndk: ndk, pubkey: req.bunkerPubkey);
+    final bunkerSigner = _getSigner(ndk: ndk, pubkey: request.bunkerPubkey);
     if (bunkerSigner == null) return;
 
     try {
       String? result;
 
-      switch (req.command) {
+      switch (request.command) {
         case Nip46Commands.connect:
           result = 'ack';
           break;
@@ -221,8 +221,8 @@ class Bunker {
           break;
 
         case Nip46Commands.signEvent:
-          if (req.params.isNotEmpty) {
-            final eventData = jsonDecode(req.params[0]);
+          if (request.params.isNotEmpty) {
+            final eventData = jsonDecode(request.params[0]);
             final event = Nip01Event(
               pubKey: userSigner.getPublicKey(),
               kind: eventData['kind'] ?? 1,
@@ -242,25 +242,25 @@ class Bunker {
           break;
 
         case Nip46Commands.nip04Encrypt:
-          if (req.params.length >= 2) {
-            final pubkey = req.params[0];
-            final plaintext = req.params[1];
+          if (request.params.length >= 2) {
+            final pubkey = request.params[0];
+            final plaintext = request.params[1];
             result = await userSigner.encrypt(plaintext, pubkey);
           }
           break;
 
         case Nip46Commands.nip04Decrypt:
-          if (req.params.length >= 2) {
-            final pubkey = req.params[0];
-            final ciphertext = req.params[1];
+          if (request.params.length >= 2) {
+            final pubkey = request.params[0];
+            final ciphertext = request.params[1];
             result = await userSigner.decrypt(ciphertext, pubkey);
           }
           break;
 
         case Nip46Commands.nip44Encrypt:
-          if (req.params.length >= 2) {
-            final pubkey = req.params[0];
-            final plaintext = req.params[1];
+          if (request.params.length >= 2) {
+            final pubkey = request.params[0];
+            final plaintext = request.params[1];
             result = await userSigner.encryptNip44(
               plaintext: plaintext,
               recipientPubKey: pubkey,
@@ -269,9 +269,9 @@ class Bunker {
           break;
 
         case Nip46Commands.nip44Decrypt:
-          if (req.params.length >= 2) {
-            final pubkey = req.params[0];
-            final ciphertext = req.params[1];
+          if (request.params.length >= 2) {
+            final pubkey = request.params[0];
+            final ciphertext = request.params[1];
             result = await userSigner.decryptNip44(
               ciphertext: ciphertext,
               senderPubKey: pubkey,
@@ -283,16 +283,16 @@ class Bunker {
       await _sendNip46Response(
         bunkerSigner: bunkerSigner,
         app: app,
-        requestId: req.id,
+        requestId: request.id,
         result: result,
       );
 
-      _processedRequestsController.sink.add(req);
+      _processedRequestsController.sink.add(request);
     } catch (e) {
       await _sendNip46Response(
         bunkerSigner: bunkerSigner,
         app: app,
-        requestId: req.id,
+        requestId: request.id,
         error: 'Error executing command: $e',
       );
     }

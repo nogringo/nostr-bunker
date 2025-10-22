@@ -29,4 +29,26 @@ class Nip46Request {
     required this.bunkerPubkey,
     required this.useNip44,
   });
+
+  factory Nip46Request.fromJson(Map<String, dynamic> json) {
+    return Nip46Request(
+      id: json['id'],
+      command: stringToNip46Command(json['command'])!,
+      params: List<String>.from(json['params']),
+      appPubkey: json['appPubkey'],
+      bunkerPubkey: json['bunkerPubkey'],
+      useNip44: json['useNip44'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'command': nip46CommandToString(command),
+      'params': params,
+      'appPubkey': appPubkey,
+      'bunkerPubkey': bunkerPubkey,
+      'useNip44': useNip44,
+    };
+  }
 }
