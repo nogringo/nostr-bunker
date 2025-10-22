@@ -28,6 +28,7 @@ Future<String?> encryptNip46(
   }
 }
 
+//! unused
 /// Decrypts a string using either NIP-44 or NIP-04 decryption
 ///
 /// [signer] - The event signer to use for decryption

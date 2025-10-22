@@ -130,6 +130,9 @@ class Bunker {
     for (final app in apps) {
       allRelays.addAll(app.relays);
       allPubkeys.add(app.bunkerPubkey);
+      //! added to comply with bad nip46 implementation
+      allPubkeys.add(app.userPubkey);
+      //!
     }
 
     // Add default bunker relays as fallback
@@ -157,14 +160,7 @@ class Bunker {
     final nip46Request = await parseNip46Request(ndk: ndk, event: event);
     if (nip46Request == null) return;
 
-    final app = apps
-        .where(
-          (app) =>
-              app.appPubkey == nip46Request.appPubkey &&
-              app.bunkerPubkey == nip46Request.bunkerPubkey,
-        )
-        .firstOrNull;
-
+    final app = getApp(nip46Request);
     if (app == null) return;
 
     final command = commandFromNip46Request(nip46Request);
@@ -194,13 +190,7 @@ class Bunker {
   }
 
   void processRequest(Nip46Request request) async {
-    final app = apps
-        .where(
-          (app) =>
-              app.appPubkey == request.appPubkey &&
-              app.bunkerPubkey == request.bunkerPubkey,
-        )
-        .firstOrNull;
+    final app = getApp(request);
     if (app == null) return;
 
     final userSigner = _getSigner(ndk: ndk, pubkey: app.userPubkey);
@@ -501,6 +491,11 @@ class Bunker {
     final account = ndk.accounts.accounts[pubkey];
     if (account == null) return null;
     return account.signer;
+  }
+
+  App? getApp(Nip46Request request) {
+    //! For compatibility "app.bunkerPubkey == request.bunkerPubkey" was removed, it may be a security issue.
+    return apps.where((app) => app.appPubkey == request.appPubkey).firstOrNull;
   }
 
   void dispose() {
