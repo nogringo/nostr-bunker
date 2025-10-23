@@ -2,10 +2,18 @@ With this package your app can act as a bunker and will be able to sign events f
 
 ## Usage
 
+This package is stateless so you need to store the apps and the signers (private keys) yourself.
+
 ```dart
-final bunker = Bunker();
-bunker.addPrivateKey("private_key");
+final bunker = Bunker(privateKeys: ["private_key"]);
+
 bunker.start();
+bunker.stop();
+bunker.restart();
+
+// add and remove accounts
+bunker.addPrivateKey("private_key");
+bunker.removePrivateKey("public_key")
 
 // connect an app with bunker://
 final bunkerUrl = bunker.getBunkerUrl(signerPubkey: "public_key_to_connect");
@@ -18,6 +26,18 @@ bunker.connectApp(
     signerPubkey: "public_key_to_connect",
     nostrConnect: nostrConnect,
 );
+
+// listen to pending requests
+bunker.pendingRequestsStream.listen((request) {
+    // process them conditionaly
+    if (request.useNip44) bunker.processRequest(request);
+});
+
+// store this
+bunker.apps;
+bunker.privateKeys;
+
+bunker.dispose();
 ```
 
 ## Additional information
