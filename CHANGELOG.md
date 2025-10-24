@@ -1,3 +1,7 @@
+## 1.3.0
+
+- add auto remove client tag feature
+
 ## 1.2.0
 
 - better documentation
