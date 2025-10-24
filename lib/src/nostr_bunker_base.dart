@@ -335,6 +335,10 @@ class Bunker {
     AuthorisationMode appAuthorisationMode = AuthorisationMode.allwaysAsk,
     bool enableApp = false,
   }) async {
+    if (!ndk.accounts.hasAccount(userPubkey)) {
+      throw "No account found for this pubkey";
+    }
+
     final signer = ndk.accounts.accounts[userPubkey]!.signer;
 
     final bunkerKeyPair = Bip340.generatePrivateKey();
@@ -420,6 +424,10 @@ class Bunker {
     bool enableApp = false,
     void Function(App app)? onConnected,
   }) {
+    if (!ndk.accounts.hasAccount(userPubkey)) {
+      throw "No account found for this pubkey";
+    }
+
     final bunkerKeyPair = Bip340.generatePrivateKey();
 
     final bunkerSigner = Bip340EventSigner(
