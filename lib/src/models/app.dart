@@ -15,6 +15,7 @@ class App {
   List<Permission> permissions;
   AuthorisationMode authorisationMode;
   bool isEnabled;
+  bool removeClientTag;
 
   App({
     required this.appPubkey,
@@ -25,6 +26,7 @@ class App {
     required this.permissions,
     this.authorisationMode = AuthorisationMode.allwaysAsk,
     this.isEnabled = false,
+    this.removeClientTag = false,
   });
 
   factory App.fromJson(Map<String, dynamic> json) {
@@ -40,7 +42,8 @@ class App {
       authorisationMode: AuthorisationMode.values.firstWhere(
         (e) => e.toString() == json['authorisationMode'],
       ),
-      isEnabled: json['isEnabled'],
+      isEnabled: json['isEnabled'] as bool? ?? false,
+      removeClientTag: json['removeClientTag'] as bool? ?? false,
     );
   }
 
@@ -56,6 +59,7 @@ class App {
           .toList(),
       'authorisationMode': authorisationMode.toString(),
       'isEnabled': isEnabled,
+      'removeClientTag': removeClientTag,
     };
   }
 

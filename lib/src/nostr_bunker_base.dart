@@ -157,15 +157,37 @@ class Bunker {
   }
 
   void _processIncomingRequestEvent(Nip01Event event) async {
-    final nip46Request = await parseNip46Request(ndk: ndk, event: event);
-    if (nip46Request == null) return;
+    Nip46Request? req = await parseNip46Request(ndk: ndk, event: event);
+    if (req == null) return;
 
-    final app = getApp(nip46Request);
+    final app = getApp(req);
     if (app == null) return;
 
-    final command = commandFromNip46Request(nip46Request);
+    final isSignEventCommand = req.command == Nip46Commands.signEvent;
+    if (app.removeClientTag && isSignEventCommand) {
+      var decodedObject = jsonDecode(req.params[0]);
+
+      // Remove client tag if requested
+      if (decodedObject is Map && decodedObject['tags'] != null) {
+        final tags = decodedObject['tags'] as List?;
+        if (tags != null) {
+          final filteredTags = tags.where((tag) {
+            if (tag is List && tag.isNotEmpty) {
+              return tag[0] != 'client';
+            }
+            return true;
+          }).toList();
+          decodedObject = Map.from(decodedObject);
+          decodedObject['tags'] = filteredTags;
+        }
+      }
+
+      req.params[0] = jsonEncode(decodedObject);
+    }
+
+    final command = commandFromNip46Request(req);
     if (app.isCommandBlocked(command)) {
-      _blockedRequestsController.sink.add(nip46Request);
+      _blockedRequestsController.sink.add(req);
 
       // TODO send an error
 
@@ -173,7 +195,7 @@ class Bunker {
     }
 
     if (!app.canAutoProcess(command)) {
-      _pendingRequestsController.sink.add(nip46Request);
+      _pendingRequestsController.sink.add(req);
 
       // TODO send an error
       // await _sendNip46Response(
@@ -186,7 +208,7 @@ class Bunker {
       return;
     }
 
-    processRequest(nip46Request);
+    processRequest(req);
   }
 
   void processRequest(Nip46Request request) async {
