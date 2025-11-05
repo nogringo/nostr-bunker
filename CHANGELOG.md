@@ -1,3 +1,7 @@
+## 1.3.1
+
+- update NDK to fix bugs
+
 ## 1.3.0
 
 - add auto remove client tag feature

@@ -13,8 +13,7 @@ void main() {
   test("Test nostr connect url", () async {
     final userKeyPair = Bip340.generatePrivateKey();
 
-    final bunker = Bunker();
-    bunker.addPrivateKey(userKeyPair.privateKey!);
+    final bunker = Bunker(privateKeys: [userKeyPair.privateKey!]);
 
     final ndkClient = Ndk.defaultConfig();
 
@@ -22,6 +21,43 @@ void main() {
 
     final clientSideGeneratedNostrConnect = NostrConnect(
       relays: ["wss://relay.nsec.app", "wss://offchain.pub"],
+      appName: appName,
+    );
+
+    Future<void> runBunker() async {
+      final app = await bunker.connectApp(
+        nostrConnect: NostrConnectUrl.fromUrl(
+          clientSideGeneratedNostrConnect.nostrConnectURL,
+        ),
+        userPubkey: userKeyPair.publicKey,
+      );
+
+      expect(app.name!, equals(appName));
+    }
+
+    Future<void> runApp() async {
+      await ndkClient.accounts.loginWithNostrConnect(
+        nostrConnect: clientSideGeneratedNostrConnect,
+        bunkers: ndkClient.bunkers,
+      );
+
+      expect(ndkClient.accounts.getPublicKey(), equals(userKeyPair.publicKey));
+    }
+
+    await Future.wait([runApp(), runBunker()]);
+  });
+
+  test("Test nostr connect url with trailling /", () async {
+    final userKeyPair = Bip340.generatePrivateKey();
+
+    final bunker = Bunker(privateKeys: [userKeyPair.privateKey!]);
+
+    final ndkClient = Ndk.defaultConfig();
+
+    final appName = "Test 123";
+
+    final clientSideGeneratedNostrConnect = NostrConnect(
+      relays: ["wss://relay.nsec.app/", "wss://offchain.pub/"],
       appName: appName,
     );
 
