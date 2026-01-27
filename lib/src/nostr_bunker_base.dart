@@ -139,9 +139,8 @@ class Bunker {
     allRelays.addAll(defaultBunkerRelays);
 
     signingRequestsSubscription = ndk.requests.subscription(
-      filters: [
-        Filter(kinds: [24133], pTags: allPubkeys.toList()),
-      ],
+      filter: Filter(kinds: [24133], pTags: allPubkeys.toList()),
+
       explicitRelays: allRelays.toList(),
     );
 
@@ -245,7 +244,7 @@ class Bunker {
               createdAt: eventData['created_at'],
             );
             await userSigner.sign(event);
-            result = jsonEncode(event.toJson());
+            result = jsonEncode(Nip01EventModel.fromEntity(event).toJson());
           }
           break;
 
@@ -410,13 +409,11 @@ class Bunker {
     await broadcastRes.broadcastDoneFuture;
 
     final sub = ndk.requests.subscription(
-      filters: [
-        Filter(
-          kinds: [24133],
-          authors: [app.appPubkey],
-          pTags: [bunkerKeyPair.publicKey],
-        ),
-      ],
+      filter: Filter(
+        kinds: [24133],
+        authors: [app.appPubkey],
+        pTags: [bunkerKeyPair.publicKey],
+      ),
       explicitRelays: app.relays,
     );
 
@@ -468,9 +465,7 @@ class Bunker {
     );
 
     final sub = ndk.requests.subscription(
-      filters: [
-        Filter(kinds: [24133], pTags: [bunkerKeyPair.publicKey]),
-      ],
+      filter: Filter(kinds: [24133], pTags: [bunkerKeyPair.publicKey]),
       explicitRelays: bunkerUrl.relays,
     );
 
