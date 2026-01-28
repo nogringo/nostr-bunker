@@ -340,10 +340,10 @@ class Bunker {
       content: encryptedContent,
     );
 
-    await bunkerSigner.sign(responseEvent);
+    final signedResponseEvent = await bunkerSigner.sign(responseEvent);
 
     final broadcastRes = ndk.broadcast.broadcast(
-      nostrEvent: responseEvent,
+      nostrEvent: signedResponseEvent,
       specificRelays: app.relays,
     );
     await broadcastRes.broadcastDoneFuture;
@@ -400,10 +400,10 @@ class Bunker {
       ))!,
     );
 
-    bunkerSigner.sign(connectEvent);
+    final signedConnectEvent = await bunkerSigner.sign(connectEvent);
 
     final broadcastRes = ndk.broadcast.broadcast(
-      nostrEvent: connectEvent,
+      nostrEvent: signedConnectEvent,
       specificRelays: app.relays,
     );
     await broadcastRes.broadcastDoneFuture;
