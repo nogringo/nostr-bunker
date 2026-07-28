@@ -21,6 +21,7 @@ Future<String?> encryptNip46(
         recipientPubKey: recipientPubkey,
       );
     } else {
+      // ignore: deprecated_member_use
       return await signer.encrypt(plaintext, recipientPubkey);
     }
   } catch (e) {

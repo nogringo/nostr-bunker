@@ -243,8 +243,10 @@ class Bunker {
               content: eventData['content'] ?? '',
               createdAt: eventData['created_at'],
             );
-            await userSigner.sign(event);
-            result = jsonEncode(Nip01EventModel.fromEntity(event).toJson());
+            final signedEvent = await userSigner.sign(event);
+            result = jsonEncode(
+              Nip01EventModel.fromEntity(signedEvent).toJson(),
+            );
           }
           break;
 
@@ -256,6 +258,7 @@ class Bunker {
           if (request.params.length >= 2) {
             final pubkey = request.params[0];
             final plaintext = request.params[1];
+            // ignore: deprecated_member_use
             result = await userSigner.encrypt(plaintext, pubkey);
           }
           break;
@@ -264,6 +267,7 @@ class Bunker {
           if (request.params.length >= 2) {
             final pubkey = request.params[0];
             final ciphertext = request.params[1];
+            // ignore: deprecated_member_use
             result = await userSigner.decrypt(ciphertext, pubkey);
           }
           break;
@@ -316,11 +320,7 @@ class Bunker {
     String? result,
     String? error,
   }) async {
-    final response = {
-      'id': requestId,
-      if (result != null) 'result': result,
-      if (error != null) 'error': error,
-    };
+    final response = {'id': requestId, 'result': ?result, 'error': ?error};
 
     final encryptedContent = await encryptNip46(
       bunkerSigner,

@@ -1,3 +1,8 @@
+## 1.3.5
+
+- fix sign_event responses being sent unsigned
+- update dependencies
+
 ## 1.3.4
 
 - update dependencies

@@ -9,18 +9,77 @@ import 'package:nostr_bunker/src/nostr_bunker_base.dart';
 import 'package:test/test.dart';
 import 'package:nostr_bunker/src/models/nostr_connect_url.dart';
 
+import 'mocks/mock_relay.dart';
+
 void main() {
+  late List<MockRelay> mockRelays;
+  late List<String> relayUrls;
+  late Ndk ndkClient;
+
+  setUp(() async {
+    mockRelays = [
+      MockRelay(name: "bunker-test-relay-1"),
+      MockRelay(name: "bunker-test-relay-2"),
+    ];
+    for (final relay in mockRelays) {
+      await relay.startServer();
+    }
+    relayUrls = mockRelays.map((relay) => relay.url).toList();
+
+    ndkClient = Ndk(
+      NdkConfig(
+        cache: MemCacheManager(),
+        eventVerifier: Bip340EventVerifier(),
+        bootstrapRelays: relayUrls,
+      ),
+    );
+    await ndkClient.relays.seedRelaysConnected;
+  });
+
+  tearDown(() async {
+    await ndkClient.destroy();
+    for (final relay in mockRelays) {
+      await relay.stopServer();
+    }
+  });
+
+  Bunker createBunker({
+    List<String> privateKeys = const <String>[],
+    List<App> apps = const <App>[],
+  }) {
+    final bunker = Bunker(
+      privateKeys: privateKeys,
+      apps: apps,
+      defaultBunkerRelays: relayUrls,
+    );
+
+    addTearDown(() async {
+      bunker.dispose();
+      await bunker.ndk.destroy();
+    });
+
+    return bunker;
+  }
+
+  Future<void> waitForBunkerSubscriptions() async {
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (mockRelays.any((relay) => relay.activeSubscriptionCount == 0)) {
+      if (DateTime.now().isAfter(deadline)) {
+        throw StateError("Bunker subscriptions never reached the mock relays");
+      }
+      await Future.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
   test("Test nostr connect url", () async {
     final userKeyPair = Bip340.generatePrivateKey();
 
-    final bunker = Bunker(privateKeys: [userKeyPair.privateKey!]);
-
-    final ndkClient = Ndk.defaultConfig();
+    final bunker = createBunker(privateKeys: [userKeyPair.privateKey!]);
 
     final appName = "Test 123";
 
     final clientSideGeneratedNostrConnect = NostrConnect(
-      relays: ["wss://relay.nsec.app", "wss://offchain.pub"],
+      relays: relayUrls,
       appName: appName,
     );
 
@@ -50,14 +109,12 @@ void main() {
   test("Test nostr connect url with trailling /", () async {
     final userKeyPair = Bip340.generatePrivateKey();
 
-    final bunker = Bunker(privateKeys: [userKeyPair.privateKey!]);
-
-    final ndkClient = Ndk.defaultConfig();
+    final bunker = createBunker(privateKeys: [userKeyPair.privateKey!]);
 
     final appName = "Test 123";
 
     final clientSideGeneratedNostrConnect = NostrConnect(
-      relays: ["wss://relay.nsec.app/", "wss://offchain.pub/"],
+      relays: relayUrls.map((url) => "$url/").toList(),
       appName: appName,
     );
 
@@ -87,11 +144,9 @@ void main() {
   test("Test bunker url", () async {
     final userKeyPair = Bip340.generatePrivateKey();
 
-    final bunker = Bunker(privateKeys: [userKeyPair.privateKey!]);
+    final bunker = createBunker(privateKeys: [userKeyPair.privateKey!]);
 
     final bunkerUrl = bunker.getBunkerUrl(userPubkey: userKeyPair.publicKey);
-
-    final ndkClient = Ndk.defaultConfig();
 
     final connection = await ndkClient.bunkers.connectWithBunkerUrl(bunkerUrl);
 
@@ -101,15 +156,13 @@ void main() {
   test("Test bunker url 2", () async {
     final userKeyPair = Bip340.generatePrivateKey();
 
-    final bunker = Bunker(privateKeys: [userKeyPair.privateKey!]);
+    final bunker = createBunker(privateKeys: [userKeyPair.privateKey!]);
 
     final bunkerUrl = bunker.getBunkerUrl(
       userPubkey: userKeyPair.publicKey,
       appAuthorisationMode: AuthorisationMode.fullyTrust,
       enableApp: true,
     );
-
-    final ndkClient = Ndk.defaultConfig();
 
     await ndkClient.accounts.loginWithBunkerUrl(
       bunkerUrl: bunkerUrl,
@@ -122,13 +175,11 @@ void main() {
   test("Test nostr connect url with asked permission", () async {
     final userKeyPair = Bip340.generatePrivateKey();
 
-    final bunker = Bunker();
+    final bunker = createBunker();
     bunker.addPrivateKey(userKeyPair.privateKey!);
 
-    final ndkClient = Ndk.defaultConfig();
-
     final clientSideGeneratedNostrConnect = NostrConnect(
-      relays: ["wss://relay.nsec.app", "wss://offchain.pub"],
+      relays: relayUrls,
       perms: ["nip44_encrypt", "nip44_decrypt"],
     );
 
@@ -179,14 +230,10 @@ void main() {
   test("Test nostr connect url without asked permission", () async {
     final userKeyPair = Bip340.generatePrivateKey();
 
-    final bunker = Bunker();
+    final bunker = createBunker();
     bunker.addPrivateKey(userKeyPair.privateKey!);
 
-    final ndkClient = Ndk.defaultConfig();
-
-    final clientSideGeneratedNostrConnect = NostrConnect(
-      relays: ["wss://relay.nsec.app", "wss://offchain.pub"],
-    );
+    final clientSideGeneratedNostrConnect = NostrConnect(relays: relayUrls);
 
     final recipientKeyPair = Bip340.generatePrivateKey();
     final recipientSigner = Bip340EventSigner(
@@ -239,13 +286,11 @@ void main() {
   test("Test all bunker commands", () async {
     final userKeyPair = Bip340.generatePrivateKey();
 
-    final bunker = Bunker();
+    final bunker = createBunker();
     bunker.addPrivateKey(userKeyPair.privateKey!);
 
-    final ndkClient = Ndk.defaultConfig();
-
     final clientSideGeneratedNostrConnect = NostrConnect(
-      relays: ["wss://relay.nsec.app", "wss://offchain.pub"],
+      relays: relayUrls,
       perms: [
         "connect",
         "sign_event:1",
@@ -291,9 +336,9 @@ void main() {
         tags: [],
         content: "Hello",
       );
-      expect(nostrEvent.sig, equals(""));
-      await clientSigner.sign(nostrEvent);
-      expect(nostrEvent.sig, isNotEmpty);
+      expect(nostrEvent.sig, isNull);
+      final signedNostrEvent = await clientSigner.sign(nostrEvent);
+      expect(signedNostrEvent.sig, isNotEmpty);
 
       // ping
       final pingRes = await clientSigner.ping();
@@ -362,7 +407,7 @@ void main() {
       appPubkey: appKeyPair.publicKey,
       bunkerPubkey: bunkerKeyPair.publicKey,
       userPubkey: userKeyPair.publicKey,
-      relays: ["wss://relay.nsec.app", "wss://offchain.pub"],
+      relays: relayUrls,
       permissions: [
         Permission(command: "connect"),
         Permission(command: "sign_event:1"),
@@ -377,14 +422,13 @@ void main() {
       isEnabled: true,
     );
 
-    final bunker = Bunker(
+    final bunker = createBunker(
       apps: [app],
       privateKeys: [userKeyPair.privateKey!, bunkerKeyPair.privateKey!],
     );
 
     bunker.start();
-
-    final ndkClient = Ndk.defaultConfig();
+    await waitForBunkerSubscriptions();
 
     await ndkClient.accounts.loginWithBunkerConnection(
       connection: BunkerConnection(
