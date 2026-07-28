@@ -67,7 +67,7 @@ Future<Nip46Request?> parseNip46Request({
     // Get the signer from repository
     final account = ndk.accounts.accounts[targetPubkey];
     if (account == null) return null;
-    final signer = account.signer as Bip340EventSigner;
+    final signer = account.signer;
 
     // Try to decrypt with NIP-44 first, fallback to NIP-04
     String? decryptedContent;
@@ -81,6 +81,7 @@ Future<Nip46Request?> parseNip46Request({
     } catch (_) {
       // NIP-44 failed, try NIP-04
       try {
+        // ignore: deprecated_member_use
         decryptedContent = await signer.decrypt(event.content, event.pubKey);
         usedNip44 = false;
       } catch (e) {

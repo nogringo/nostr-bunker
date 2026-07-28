@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:ndk/ndk.dart';
-import 'package:ndk/shared/nips/nip01/bip340.dart';
 import 'package:nostr_bunker/src/models/app.dart';
 import 'package:nostr_bunker/src/models/bunker_url.dart';
 import 'package:nostr_bunker/src/models/nip46_request.dart';
@@ -36,10 +35,12 @@ class Bunker {
   Stream<Nip46Request> get processedRequestsStream =>
       _processedRequestsController.stream;
 
-  List<String> get privateKeys => ndk.accounts.accounts.values
-      .where((account) => account.signer is Bip340EventSigner)
-      .map((account) => (account.signer as Bip340EventSigner).privateKey!)
-      .toList();
+  /// pubkey -> private key, of the keys owned by this bunker
+  final Map<String, String> _privateKeys = {};
+
+  LocalEventSignerFactory get _signerFactory => ndk.accounts.eventSignerFactory;
+
+  List<String> get privateKeys => _privateKeys.values.toList();
 
   bool get isStarted => signingRequestsSubscription != null;
 
@@ -81,17 +82,27 @@ class Bunker {
   }
 
   void addPrivateKey(String privateKey) {
-    final pubkey = Bip340.getPublicKey(privateKey);
-    final signer = Bip340EventSigner(privateKey: privateKey, publicKey: pubkey);
+    final pubkey = _signerFactory.derivePublicKey(privateKey);
+    _addSigner(privateKey: privateKey, pubkey: pubkey);
+  }
+
+  void removePrivateKey(String pubkey) {
+    _privateKeys.remove(pubkey);
+    ndk.accounts.removeAccount(pubkey: pubkey);
+  }
+
+  EventSigner _addSigner({required String privateKey, required String pubkey}) {
+    final signer = _signerFactory.create(
+      privateKey: privateKey,
+      publicKey: pubkey,
+    );
+    _privateKeys[pubkey] = privateKey;
     ndk.accounts.addAccount(
       pubkey: pubkey,
       type: AccountType.privateKey,
       signer: signer,
     );
-  }
-
-  void removePrivateKey(String pubkey) {
-    ndk.accounts.removeAccount(pubkey: pubkey);
+    return signer;
   }
 
   void removeApp(App app) {
@@ -351,21 +362,16 @@ class Bunker {
 
     final signer = ndk.accounts.accounts[userPubkey]!.signer;
 
-    final bunkerKeyPair = Bip340.generatePrivateKey();
+    final (bunkerPrivateKey, bunkerPubkey) = _signerFactory.generateKeyPair();
 
-    final bunkerSigner = Bip340EventSigner(
-      privateKey: bunkerKeyPair.privateKey!,
-      publicKey: bunkerKeyPair.publicKey,
-    );
-    ndk.accounts.addAccount(
-      pubkey: bunkerSigner.publicKey,
-      type: AccountType.privateKey,
-      signer: bunkerSigner,
+    final bunkerSigner = _addSigner(
+      privateKey: bunkerPrivateKey,
+      pubkey: bunkerPubkey,
     );
 
     final app = App(
       appPubkey: nostrConnect.clientPubkey,
-      bunkerPubkey: bunkerKeyPair.publicKey,
+      bunkerPubkey: bunkerPubkey,
       userPubkey: userPubkey,
       relays: nostrConnect.relays,
       permissions: nostrConnect.permissions,
@@ -401,7 +407,7 @@ class Bunker {
       filter: Filter(
         kinds: [24133],
         authors: [app.appPubkey],
-        pTags: [bunkerKeyPair.publicKey],
+        pTags: [bunkerPubkey],
       ),
       explicitRelays: app.relays,
     );
@@ -436,25 +442,20 @@ class Bunker {
       throw "No account found for this pubkey";
     }
 
-    final bunkerKeyPair = Bip340.generatePrivateKey();
+    final (bunkerPrivateKey, bunkerPubkey) = _signerFactory.generateKeyPair();
 
-    final bunkerSigner = Bip340EventSigner(
-      privateKey: bunkerKeyPair.privateKey!,
-      publicKey: bunkerKeyPair.publicKey,
-    );
-    ndk.accounts.addAccount(
-      pubkey: bunkerSigner.publicKey,
-      type: AccountType.privateKey,
-      signer: bunkerSigner,
+    final bunkerSigner = _addSigner(
+      privateKey: bunkerPrivateKey,
+      pubkey: bunkerPubkey,
     );
 
     final bunkerUrl = BunkerUrl(
-      pubkey: bunkerKeyPair.publicKey,
+      pubkey: bunkerPubkey,
       relays: defaultBunkerRelays,
     );
 
     final sub = ndk.requests.subscription(
-      filter: Filter(kinds: [24133], pTags: [bunkerKeyPair.publicKey]),
+      filter: Filter(kinds: [24133], pTags: [bunkerPubkey]),
       explicitRelays: bunkerUrl.relays,
     );
 
@@ -469,7 +470,7 @@ class Bunker {
 
       final app = App(
         appPubkey: nip46Request.appPubkey,
-        bunkerPubkey: bunkerKeyPair.publicKey,
+        bunkerPubkey: bunkerPubkey,
         userPubkey: userPubkey,
         name: appName,
         relays: bunkerUrl.relays,

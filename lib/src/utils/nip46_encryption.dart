@@ -39,7 +39,7 @@ Future<String?> encryptNip46(
 ///
 /// Returns the decrypted string or null if decryption fails
 Future<String?> decryptNip46(
-  Bip340EventSigner signer,
+  EventSigner signer,
   String ciphertext,
   String senderPubkey,
   bool useNip44,
@@ -51,6 +51,7 @@ Future<String?> decryptNip46(
         senderPubKey: senderPubkey,
       );
     } else {
+      // ignore: deprecated_member_use
       return await signer.decrypt(ciphertext, senderPubkey);
     }
   } catch (e) {
