@@ -5,7 +5,10 @@ With this package your app can act as a bunker and will be able to sign events f
 This package is stateless so you need to store the apps and the signers (private keys) yourself.
 
 ```dart
-final bunker = Bunker(privateKeys: ["private_key"]);
+final bunker = Bunker(
+    ndk: yourNdk,
+    privateKeys: ["private_key"],
+);
 
 bunker.start();
 bunker.stop();
@@ -42,9 +45,20 @@ bunker.dispose();
 
 ## Additional information
 
-This package use [NDK](https://pub.dev/packages/ndk) internally.
+This package use [NDK](https://pub.dev/packages/ndk) internally, so you have to provide the `Ndk` instance yourself.
 
 ```dart
-final yourGlobalNdk = Ndk.defaultConfig();
-final bunker = Bunker(ndk: yourGlobalNdk);
+final bunker = Bunker(ndk: Ndk.defaultConfig());
+```
+
+In a Flutter app, use the platform aware verifier from [ndk_flutter](https://pub.dev/packages/ndk_flutter), it is much faster than `Bip340EventVerifier` on web.
+
+```dart
+final ndk = Ndk(
+    NdkConfig(
+        cache: MemCacheManager(),
+        eventVerifier: NdkEventVerifier(),
+    ),
+);
+final bunker = Bunker(ndk: ndk);
 ```

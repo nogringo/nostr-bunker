@@ -1,3 +1,8 @@
+## 1.4.0
+
+- breaking: the `ndk` instance is now required
+- remove the internal `NoEventVerifier`, the event verifier is now chosen by the caller
+
 ## 1.3.5
 
 - fix sign_event responses being sent unsigned

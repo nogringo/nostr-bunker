@@ -48,6 +48,13 @@ void main() {
     List<App> apps = const <App>[],
   }) {
     final bunker = Bunker(
+      ndk: Ndk(
+        NdkConfig(
+          cache: MemCacheManager(),
+          eventVerifier: Bip340EventVerifier(),
+          bootstrapRelays: relayUrls,
+        ),
+      ),
       privateKeys: privateKeys,
       apps: apps,
       defaultBunkerRelays: relayUrls,

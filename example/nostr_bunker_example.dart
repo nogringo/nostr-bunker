@@ -4,7 +4,10 @@ import 'package:nostr_bunker/nostr_bunker.dart';
 
 void main() async {
   final userKeyPair = Bip340.generatePrivateKey();
-  final bunker = Bunker(privateKeys: [userKeyPair.privateKey!]);
+  final bunker = Bunker(
+    ndk: Ndk.defaultConfig(),
+    privateKeys: [userKeyPair.privateKey!],
+  );
 
   final bunkerUrl = bunker.getBunkerUrl(userPubkey: userKeyPair.publicKey);
 

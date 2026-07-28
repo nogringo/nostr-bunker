@@ -11,10 +11,9 @@ import 'package:nostr_bunker/src/models/permission.dart';
 import 'package:nostr_bunker/src/utils/generate_secret.dart';
 import 'package:nostr_bunker/src/utils/nip46_encryption.dart';
 import 'package:nostr_bunker/src/utils/nip46_parser.dart';
-import 'package:nostr_bunker/src/utils/no_event_verifier.dart';
 
 class Bunker {
-  late Ndk ndk;
+  final Ndk ndk;
   late List<App> apps = [];
   late List<String> defaultBunkerRelays = [];
 
@@ -45,26 +44,16 @@ class Bunker {
   bool get isStarted => signingRequestsSubscription != null;
 
   Bunker({
+    required this.ndk,
     List<String> privateKeys = const <String>[],
     List<App> apps = const <App>[],
     List<String> defaultBunkerRelays = const [
       "wss://relay.nsec.app",
       "wss://offchain.pub",
     ],
-    Ndk? ndk,
   }) {
     this.apps.addAll(apps);
     this.defaultBunkerRelays.addAll(defaultBunkerRelays);
-
-    this.ndk =
-        ndk ??
-        Ndk(
-          NdkConfig(
-            eventVerifier: NoEventVerifier(),
-            cache: MemCacheManager(),
-            bootstrapRelays: [...defaultBunkerRelays],
-          ),
-        );
 
     for (var pk in privateKeys) {
       addPrivateKey(pk);
